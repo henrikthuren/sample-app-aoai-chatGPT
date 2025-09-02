@@ -66,24 +66,52 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
     setFeedbackState(currentFeedbackState)
   }, [appStateContext?.state.feedbackState, feedbackState, answer.message_id])
 
-  const createCitationFilepath = (citation: Citation, index: number, truncate: boolean = false) => {
-    let citationFilename = ''
+  /*   const createCitationFilepath = (citation: Citation, index: number, truncate: boolean = false) => {
+      let citationFilename = ''
+  
+      if (citation.filepath) {
+        const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
+        if (truncate && citation.filepath.length > filePathTruncationLimit) {
+          const citationLength = citation.filepath.length
+          citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
+        } else {
+          citationFilename = `${citation.filepath} - Part ${part_i}`
+        }
+      } else if (citation.filepath && citation.reindex_id) {
+        citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
+      } else {
+        citationFilename = `Citation ${index}`
+      }
+      return citationFilename
+    } */
+
+  const createCitationLabel = (citation: Citation, index: number, truncate: boolean = false) => {
+    const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
+    const truncateMiddle = (s: string, head = 20, tail = 20) =>
+      s.length > head + tail ? `${s.substring(0, head)}...${s.substring(s.length - tail)}` : s
+
+    if (citation.title && citation.title.trim().length > 0) {
+      return part_i ? `${citation.title.trim()} - Part ${part_i}` : citation.title.trim()
+    }
+
+    if (citation.url) {
+      try {
+        const u = new URL(citation.url)
+        const pretty = truncate ? truncateMiddle(`${u.hostname}${u.pathname}`) : `${u.hostname}${u.pathname}`
+        return part_i ? `${pretty} - Part ${part_i}` : pretty
+      } catch {
+        // fall through if invalid URL
+      }
+    }
 
     if (citation.filepath) {
-      const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
-      if (truncate && citation.filepath.length > filePathTruncationLimit) {
-        const citationLength = citation.filepath.length
-        citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
-      } else {
-        citationFilename = `${citation.filepath} - Part ${part_i}`
-      }
-    } else if (citation.filepath && citation.reindex_id) {
-      citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
-    } else {
-      citationFilename = `Citation ${index}`
+      const pretty = truncate ? truncateMiddle(citation.filepath) : citation.filepath
+      return part_i ? `${pretty} - Part ${part_i}` : pretty
     }
-    return citationFilename
+
+    return `Citation ${index}`
   }
+
 
   const onLikeResponseClicked = async () => {
     if (answer.message_id == undefined) return
@@ -352,22 +380,68 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
         </Stack>
         {chevronIsExpanded && (
           <div className={styles.citationWrapper}>
-            {parsedAnswer?.citations.map((citation, idx) => {
+              {parsedAnswer?.citations.map((citation, idx0) => {
+                const idx = idx0 + 1
+                const labelFull = createCitationLabel(citation, idx, false)
+                const labelTrunc = createCitationLabel(citation, idx, true)
+
+                const commonInner = (
+                  <>
+                    <div className={styles.citation}>{idx}</div>
+                    {labelTrunc}
+                  </>
+                )
+
+                // Prefer opening external URL; keep modal as fallback (no URL or blob)
+                const isBrowsableUrl = !!citation.url && !citation.url.includes('blob.core')
+
+                return isBrowsableUrl ? (
+                  <a
+                    key={idx0}
+                    href={citation.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={labelFull}
+                    aria-label={labelFull}
+                    className={styles.citationContainer}
+                    // prevent any parent click handlers from triggering the modal
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {commonInner}
+                  </a>
+                ) : (
+                  <span
+                    key={idx0}
+                    title={labelFull}
+                    tabIndex={0}
+                    role="link"
+                    onClick={() => onCitationClicked(citation)}
+                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? onCitationClicked(citation) : null)}
+                    className={styles.citationContainer}
+                    aria-label={labelFull}
+                  >
+                    {commonInner}
+                  </span>
+                )
+              })}
+
+/*             {parsedAnswer?.citations.map((citation, idx) => {
               return (
                 <span
-                  title={createCitationFilepath(citation, ++idx)}
+                  title={createCitationLabel(citation, ++idx)}
                   tabIndex={0}
                   role="link"
                   key={idx}
                   onClick={() => onCitationClicked(citation)}
                   onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? onCitationClicked(citation) : null)}
                   className={styles.citationContainer}
-                  aria-label={createCitationFilepath(citation, idx)}>
+                  aria-label={createCitationLabel(citation, idx)}>
                   <div className={styles.citation}>{idx}</div>
-                  {createCitationFilepath(citation, idx, true)}
+                  {createCitationLabel(citation, idx, true)}
                 </span>
               )
-            })}
+})} */
+            
           </div>
         )}
       </Stack>

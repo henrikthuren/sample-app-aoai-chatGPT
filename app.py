@@ -454,6 +454,8 @@ async def complete_chat_request(request_body, request_headers):
         response, apim_request_id = await send_chat_request(request_body, request_headers)
         history_metadata = request_body.get("history_metadata", {})
         non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
+        non_streaming_response = _normalize_citations_payload(non_streaming_response)
+
 
         if app_settings.azure_openai.function_call_azure_functions_enabled:
             function_response = await process_function_call(response)  # Add await here
@@ -464,6 +466,7 @@ async def complete_chat_request(request_body, request_headers):
                 response, apim_request_id = await send_chat_request(request_body, request_headers)
                 history_metadata = request_body.get("history_metadata", {})
                 non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
+                non_streaming_response = _normalize_citations_payload(non_streaming_response)
 
     return non_streaming_response
 
